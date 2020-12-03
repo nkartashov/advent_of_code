@@ -2,8 +2,6 @@ from typing import NamedTuple, List
 from collections import Counter
 
 
-# assert(find_three_summing_to_target([1, 1, 1], 3) == (1, 1, 1))
-
 def safe_get(l, idx):
     if idx >= len(l):
         return None
