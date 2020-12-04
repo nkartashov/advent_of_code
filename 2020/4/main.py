@@ -1,11 +1,12 @@
 from typing import List, NamedTuple
 import re
 
-HAIR_REGEX = re.compile(r"#[0-9a-f]{6}")
+HAIR_REGEX = re.compile("^#[0-9a-f]{6}$")
 EYE_COLORS = {"amb", "blu", "brn", "gry", "grn", "hzl", "oth"}
-PASSPORT_ID_REGEX = re.compile(r"[0-9]{9}")
+PASSPORT_ID_REGEX = re.compile("^[0-9]{9}$")
 
-assert(not HAIR_REGEX.match("#fffff"))
+assert(HAIR_REGEX.match("#fffff") is None)
+assert(HAIR_REGEX.match("#fffffff") is None)
 
 def validate_year(value, low, high):
     return len(value) == 4 and \
