@@ -46,11 +46,22 @@ assert(BoardingPass.parse("FBFBBFFRLR").seat_id == 357)
 def parse_passes(lines):
     return [BoardingPass.parse(line) for line in lines]
 
+def find_missing_seat(passes):
+    seat_ids = [pazz.seat_id for pazz in passes]
+    seat_ids.sort()
+    for i, seat_id in enumerate(seat_ids):
+        # No need to check for bounds as solution exists in the list
+        if seat_ids[i + 1] == seat_id + 2:
+            return seat_id + 1
+
+    return None
+
 def main():
     with open('in.txt') as infile:
         lines = [line.strip() for line in infile.readlines()]
         passes = parse_passes(lines)
         print(max(pazz.seat_id for pazz in passes))
+        print(find_missing_seat(passes))
 
 
 if __name__ == "__main__":
