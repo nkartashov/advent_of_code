@@ -4,6 +4,8 @@ ROW_BITS = 7
 COLUMN_BITS = 3
 MAX_COLUMNS = 2 ** COLUMN_BITS
 
+def parse_code_with_mapper(code, mapper) -> int:
+    return int(''.join(mapper(x) for x in code), 2)
 
 def parse_row_encoding(row_code) -> int:
     def mapper(x):
@@ -11,7 +13,7 @@ def parse_row_encoding(row_code) -> int:
             return "1"
         return "0"
 
-    return int(''.join(mapper(x) for x in row_code), 2)
+    return parse_code_with_mapper(row_code, mapper)
 
 assert(parse_row_encoding("FBFBBFF") == 44)
 
@@ -21,7 +23,7 @@ def parse_column_encoding(column_code) -> int:
             return "1"
         return "0"
 
-    return int(''.join(mapper(x) for x in column_code), 2)
+    return parse_code_with_mapper(column_code, mapper)
 
 assert(parse_column_encoding("RLR") == 5)
 
