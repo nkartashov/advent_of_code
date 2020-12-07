@@ -56,30 +56,21 @@ def parse_bag_rules(lines):
     return [parse_bag_rule(line) for line in lines]
 
 def setup_traversal(bag_rules):
-    has_parents = dict()
-    nodes = defaultdict(list)
+    reverse_nodes = defaultdict(list)
     for parent, children in bag_rules:
-        if parent not in has_parents and not has_parents.get(parent):
-            has_parents[parent] = False
         for _, child_color in children:
-            has_parents[child_color] = True
-            nodes[parent].append(child_color)
-    return {node for node, has_parents_val in has_parents.items() if not has_parents_val}, nodes
+            reverse_nodes[child_color].append(parent)
+    return reverse_nodes
 
-def traverse_nodes(start_nodes, nodes):
-    cache = dict()
-    for node in start_nodes:
-        traverse_helper(node, nodes, cache)
-    return len([can_hold for _, can_hold in cache.items() if can_hold])
+def traverse_nodes(reverse_nodes):
+    visited = set()
+    return sum(traverse_helper(child, reverse_nodes, visited) for child in reverse_nodes[SHINY_GOLD])
 
-def traverse_helper(current, nodes, cache):
-    if current not in cache:
-        children = nodes[current]
-        cache[current] = SHINY_GOLD in children
-        for child in children:
-            traverse_helper(child, nodes, cache)
-        cache[current] = cache[current] or any(cache[child] for child in children)
-    return cache[current]
+def traverse_helper(current, reverse_nodes, visited):
+    if current in visited:
+        return 0
+    visited.add(current)
+    return 1 + sum(traverse_helper(child, reverse_nodes, visited) for child in reverse_nodes[current])
 
 
 TEST_LINES = """light red bags contain 1 bright white bag, 2 muted yellow bags.
@@ -92,15 +83,14 @@ vibrant plum bags contain 5 faded blue bags, 6 dotted black bags.
 faded blue bags contain no other bags.
 dotted black bags contain no other bags.""".split('\n')
 
-assert(traverse_nodes(*setup_traversal(parse_bag_rules(TEST_LINES))) == 4)
+assert(traverse_nodes(setup_traversal(parse_bag_rules(TEST_LINES))) == 4)
 
 
 def main():
     with open('in.txt') as infile:
         lines = [line.strip() for line in infile.readlines()]
         bag_rules = parse_bag_rules(lines)
-        start_nodes, nodes = setup_traversal(bag_rules)
-        print(traverse_nodes(start_nodes, nodes))
+        print(traverse_nodes(setup_traversal(bag_rules)))
 
 
 if __name__ == "__main__":
