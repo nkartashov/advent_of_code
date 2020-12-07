@@ -73,7 +73,7 @@ def traverse_helper(current, reverse_nodes, visited):
     return 1 + sum(traverse_helper(child, reverse_nodes, visited) for child in reverse_nodes[current])
 
 
-TEST_LINES = """light red bags contain 1 bright white bag, 2 muted yellow bags.
+TEST_LINES1 = """light red bags contain 1 bright white bag, 2 muted yellow bags.
 dark orange bags contain 3 bright white bags, 4 muted yellow bags.
 bright white bags contain 1 shiny gold bag.
 muted yellow bags contain 2 shiny gold bags, 9 faded blue bags.
@@ -83,14 +83,40 @@ vibrant plum bags contain 5 faded blue bags, 6 dotted black bags.
 faded blue bags contain no other bags.
 dotted black bags contain no other bags.""".split('\n')
 
-assert(traverse_nodes(setup_traversal(parse_bag_rules(TEST_LINES))) == 4)
+assert(traverse_nodes(setup_traversal(parse_bag_rules(TEST_LINES1))) == 4)
 
+def build_nodes(bag_rules):
+    result = defaultdict(list)
+    for parent, children in bag_rules:
+        for child in children:
+            result[parent].append(child)
+    return result
+
+def count_bags(nodes):
+    cache = dict()
+    return count_bags_helper(SHINY_GOLD, nodes, cache) - 1
+
+def count_bags_helper(current, nodes, cache):
+    if current not in cache:
+        cache[current] = 1 + sum(count * count_bags_helper(child, nodes, cache) for count, child in nodes[current])
+    return cache[current]
+
+TEST_LINES2 = """shiny gold bags contain 2 dark red bags.
+dark red bags contain 2 dark orange bags.
+dark orange bags contain 2 dark yellow bags.
+dark yellow bags contain 2 dark green bags.
+dark green bags contain 2 dark blue bags.
+dark blue bags contain 2 dark violet bags.
+dark violet bags contain no other bags.""".split('\n')
+
+assert(count_bags(build_nodes(parse_bag_rules(TEST_LINES2))) == 126)
 
 def main():
     with open('in.txt') as infile:
         lines = [line.strip() for line in infile.readlines()]
         bag_rules = parse_bag_rules(lines)
         print(traverse_nodes(setup_traversal(bag_rules)))
+        print(count_bags(build_nodes(bag_rules)))
 
 
 if __name__ == "__main__":
