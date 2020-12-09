@@ -52,11 +52,38 @@ TEST_NUMBERS = [int(line) for line in """35
 
 ass(127, find_first_nonsum_number, TEST_NUMBERS, preamble_size=5)
 
+def find_sum_subrange(numbers, target):
+    i = 0
+    j = 0
+    current_sum = numbers[i]
+    while current_sum != target:
+        if current_sum < target:
+            j += 1
+            current_sum += numbers[j]
+        else:
+            if i != j:
+                current_sum -= numbers[i]
+                i += 1
+            else:
+                i += 1
+                j += 1
+                current_sum = numbers[i]
+
+    return i, j
+
+ass((2, 5), find_sum_subrange, TEST_NUMBERS, 127)
+
+def find_solution_from_subrange(numbers, left, right):
+    return min(numbers[left:right]) + max(numbers[left:right])
+
+
 def main():
     with open('in.txt') as infile:
         lines = [line.strip() for line in infile.readlines()]
         numbers = list(map(int, lines))
-        print(find_first_nonsum_number(numbers))
+        nonsum_number = find_first_nonsum_number(numbers)
+        print(nonsum_number)
+        print(find_solution_from_subrange(numbers, *find_sum_subrange(numbers, nonsum_number)))
 
 
 if __name__ == "__main__":
