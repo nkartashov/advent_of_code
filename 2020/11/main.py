@@ -25,30 +25,28 @@ FLOOR = '.'
 def lines_to_list(lines):
     return [list(line) for line in lines]
 
-def simulate_life(grid):
+def count_occupied(grid, i, j):
+    result = 0
+    for dx, dy in D_POSITION:
+        new_i = i + dx
+        new_j = j + dy
+        if 0 <= new_i < len(grid[0]) and \
+           0 <= new_j < len(grid) and \
+           grid[new_j][new_i] == OCCUPIED:
+               result += 1
+    return result
+
+def swap_occupied_if_needed(value, occupied):
+    if value == EMPTY and occupied == 0:
+        return OCCUPIED, True
+
+    if value == OCCUPIED and occupied >= 4:
+        return EMPTY, True
+
+    return value, False
+
+def simulate_life(grid, count_occupied=count_occupied, swap_occupied_if_needed=swap_occupied_if_needed):
     buf = [[FLOOR] * len(grid[0]) for row in grid]
-    def count_occupied(i, j):
-        result = 0
-        for dx, dy in D_POSITION:
-            new_i = i + dx
-            new_j = j + dy
-            if 0 <= new_i < len(grid[0]) and \
-               0 <= new_j < len(grid) and \
-               grid[new_j][new_i] == OCCUPIED:
-                   result += 1
-        return result
-
-    def swap_occupied_if_needed(i, j):
-        value = grid[j][i]
-        occupied = count_occupied(i, j)
-        if value == EMPTY and occupied == 0:
-            return OCCUPIED, True
-
-        if value == OCCUPIED and occupied >= 4:
-            return EMPTY, True
-
-        return value, False
-
 
     has_changed = True
     while has_changed:
@@ -59,7 +57,8 @@ def simulate_life(grid):
                 if value == FLOOR:
                     continue
 
-                buf[j][i], changed = swap_occupied_if_needed(i, j)
+                occupied = count_occupied(grid, i, j)
+                buf[j][i], changed = swap_occupied_if_needed(value, occupied)
                 has_changed = has_changed or changed
 
         buf, grid = grid, buf
