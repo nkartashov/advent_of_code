@@ -63,38 +63,23 @@ DIRECTION_TO_COORDINATE_CHANGE = {
     Direction.W: (-1, 0),
 }
 
-class Ship:
-    _direction: Direction
-    _x: int
-    _y: int
-
-    def __init__(self):
-        self._direction = Direction.E
-        self._x = 0
-        self._y = 0
-
-    def run(self, instruction: Inst):
+def simulate(instructions):
+    x, y, direction = 0, 0, Direction.E
+    for instruction in instructions:
         if instruction.direction is not None or instruction.move is not None:
-            dx, dy = DIRECTION_TO_COORDINATE_CHANGE[self._direction]
+            dx, dy = DIRECTION_TO_COORDINATE_CHANGE[direction]
             if instruction.direction is not None:
                 dx, dy = DIRECTION_TO_COORDINATE_CHANGE[instruction.direction]
-            self._x += dx * instruction.value
-            self._y += dy * instruction.value
+            x += dx * instruction.value
+            y += dy * instruction.value
+
         if instruction.turn is not None:
             if instruction.value % 90 != 0:
                 raise ValueError(f"Got {instruction.value}, expected turn to be divisible by 90")
             turn_shift = instruction.value // 90 * instruction.turn.to_sign()
-            self._direction = self._direction.cycle(turn_shift)
+            direction = direction.cycle(turn_shift)
 
-    def manhattan(self):
-        return abs(self._x) + abs(self._y)
-
-def simulate(instructions):
-    ship = Ship()
-    for instruction in instructions:
-        ship.run(instruction)
-
-    return ship.manhattan()
+    return abs(x) + abs(y)
 
 TEST_INSTRUCTIONS = parse_instructions("""F10
 N3
