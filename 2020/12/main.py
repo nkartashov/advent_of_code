@@ -57,9 +57,9 @@ def parse_instructions(lines):
     return [parse_instruction(line) for line in lines]
 
 DIRECTION_TO_COORDINATE_CHANGE = {
-    Direction.N: (0, -1),
+    Direction.N: (0, 1),
     Direction.E: (1, 0),
-    Direction.S: (0, 1),
+    Direction.S: (0, -1),
     Direction.W: (-1, 0),
 }
 
@@ -72,10 +72,6 @@ class Ship:
         self._direction = Direction.E
         self._x = 0
         self._y = 0
-
-    def __init__(self, x, y):
-        self._x = x
-        self._y = y
 
     def run(self, instruction: Inst):
         if instruction.direction is not None or instruction.move is not None:
@@ -108,11 +104,52 @@ F11""".split())
 
 ass(25, simulate, TEST_INSTRUCTIONS)
 
+
+def rotate(x, y, turn):
+    turn = turn % 4
+    while turn > 0:
+        x, y = y, -x
+        turn -= 1
+
+    return x, y
+
+ass((-2, 1), rotate, 1, 2, -1)
+ass((2, -1), rotate, 1, 2, -3)
+
+def simulate_waypoint(instructions):
+    # Ship coords.
+    s_x, s_y = 0, 0
+
+    # Waypoint coords.
+    w_x, w_y = 10, 1
+
+    for instruction in instructions:
+        if instruction.direction is not None:
+            dx, dy = DIRECTION_TO_COORDINATE_CHANGE[instruction.direction]
+            w_x += instruction.value * dx
+            w_y += instruction.value * dy
+
+        if instruction.turn is not None:
+            if instruction.value % 90 != 0:
+                raise ValueError(f"Got {instruction.value}, expected turn to be divisible by 90")
+            turn_shift = instruction.value // 90 * instruction.turn.to_sign()
+            w_x, w_y = rotate(w_x, w_y, turn_shift)
+
+        if instruction.move is not None:
+            s_x += instruction.value * w_x
+            s_y += instruction.value * w_y
+
+    return abs(s_x) + abs(s_y)
+
+ass(286, simulate_waypoint, TEST_INSTRUCTIONS)
+
+
 def main():
     with open('in.txt') as infile:
         lines = [line.strip() for line in infile.readlines()]
         instructions = parse_instructions(lines)
         print(simulate(instructions))
+        print(simulate_waypoint(instructions))
 
 
 if __name__ == "__main__":
