@@ -15,9 +15,21 @@ class Direction(Enum):
     S = 'S'
     W = 'W'
 
+    def cycle(self, shift):
+        VALUES = [value for value in Direction]
+        return VALUES[(VALUES.index(self) + shift) % len(VALUES)]
+
+ass(Direction.N, Direction.S.cycle, 2)
+ass(Direction.N, Direction.S.cycle, -6)
+
 class Turn(Enum):
     L = 'L'
     R = 'R'
+
+    def to_sign(self):
+        if self is Turn.L:
+            return -1
+        return 1
 
 class Move(Enum):
     F = 'F'
@@ -41,9 +53,66 @@ ass(Inst(move=Move.F, value=10), parse_instruction, "F10")
 ass(Inst(turn=Turn.R, value=90), parse_instruction, "R90")
 ass(Inst(direction=Direction.N, value=3), parse_instruction, "N3")
 
+def parse_instructions(lines):
+    return [parse_instruction(line) for line in lines]
+
+DIRECTION_TO_COORDINATE_CHANGE = {
+    Direction.N: (0, -1),
+    Direction.E: (1, 0),
+    Direction.S: (0, 1),
+    Direction.W: (-1, 0),
+}
+
+class Ship:
+    _direction: Direction
+    _x: int
+    _y: int
+
+    def __init__(self):
+        self._direction = Direction.E
+        self._x = 0
+        self._y = 0
+
+    def __init__(self, x, y):
+        self._x = x
+        self._y = y
+
+    def run(self, instruction: Inst):
+        if instruction.direction is not None or instruction.move is not None:
+            dx, dy = DIRECTION_TO_COORDINATE_CHANGE[self._direction]
+            if instruction.direction is not None:
+                dx, dy = DIRECTION_TO_COORDINATE_CHANGE[instruction.direction]
+            self._x += dx * instruction.value
+            self._y += dy * instruction.value
+        if instruction.turn is not None:
+            if instruction.value % 90 != 0:
+                raise ValueError(f"Got {instruction.value}, expected turn to be divisible by 90")
+            turn_shift = instruction.value // 90 * instruction.turn.to_sign()
+            self._direction = self._direction.cycle(turn_shift)
+
+    def manhattan(self):
+        return abs(self._x) + abs(self._y)
+
+def simulate(instructions):
+    ship = Ship()
+    for instruction in instructions:
+        ship.run(instruction)
+
+    return ship.manhattan()
+
+TEST_INSTRUCTIONS = parse_instructions("""F10
+N3
+F7
+R90
+F11""".split())
+
+ass(25, simulate, TEST_INSTRUCTIONS)
+
 def main():
     with open('in.txt') as infile:
         lines = [line.strip() for line in infile.readlines()]
+        instructions = parse_instructions(lines)
+        print(simulate(instructions))
 
 
 if __name__ == "__main__":
