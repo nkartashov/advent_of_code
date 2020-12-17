@@ -5,13 +5,12 @@ from copy import deepcopy
 from itertools import product
 from functools import lru_cache
 
-def ass(want, f, *args, **kwargs):
+def assrt(want, f, *args, **kwargs):
     got = f(*args, **kwargs)
     if got != want:
         print(f"{f.__qualname__} returned {got}, expected {want}")
 
 ACTIVE = '#'
-INACTIVE = '.'
 
 def transform_input_field_into_active_set(field, dimensions=3):
     result = set()
@@ -32,8 +31,8 @@ def get_neighbours(cell):
         D_CELL = D_CELL3
     return [tuple(c + d_cell[i] for i, c in enumerate(cell)) for d_cell in D_CELL]
 
-ass(D_CELL3, get_neighbours, (0, 0, 0))
-ass(D_CELL4, get_neighbours, (0, 0, 0, 0))
+assrt(D_CELL3, get_neighbours, (0, 0, 0))
+assrt(D_CELL4, get_neighbours, (0, 0, 0, 0))
 
 
 # Expects a set of active coordinates
@@ -62,17 +61,20 @@ TEST_FIELD = """.#.
 ###
 """.split()
 
-ass(112, simulate_cycles, transform_input_field_into_active_set(TEST_FIELD), 6)
-ass(848, simulate_cycles, transform_input_field_into_active_set(TEST_FIELD, dimensions=4), 6)
+assrt(112, simulate_cycles, transform_input_field_into_active_set(TEST_FIELD), 6)
+assrt(848, simulate_cycles, transform_input_field_into_active_set(TEST_FIELD, dimensions=4), 6)
 
 
 def main():
     with open('in.txt') as infile:
         lines = [line.strip() for line in infile.readlines()]
         active_set = transform_input_field_into_active_set(lines)
-        print(simulate_cycles(active_set, 6))
+        timer
+        with timer('part1'):
+            print(simulate_cycles(active_set, 6))
         active_set4 = transform_input_field_into_active_set(lines, dimensions=4)
-        print(simulate_cycles(active_set4, 6))
+        with timer('part2'):
+            print(simulate_cycles(active_set4, 6))
 
 
 
