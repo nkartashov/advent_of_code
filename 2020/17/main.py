@@ -13,21 +13,27 @@ def ass(want, f, *args, **kwargs):
 ACTIVE = '#'
 INACTIVE = '.'
 
-def transform_input_field_into_active_set(field):
+def transform_input_field_into_active_set(field, dimensions=3):
     result = set()
     for y, row in enumerate(field):
         for x, value in enumerate(row):
             if value == ACTIVE:
-                result.add((x, y, 0))
+                result.add(tuple([x, y] + [0] * (dimensions - 2)))
     return result
 
 D_COORD = [0, 1, -1]
-D_CELL = list(product(D_COORD, D_COORD, D_COORD))[1:]
+D_CELL3 = list(product(D_COORD, D_COORD, D_COORD))[1:]
+D_CELL4 = list(product(D_COORD, D_COORD, D_COORD, D_COORD))[1:]
 
 @lru_cache(maxsize=10 ** 6)
 def get_neighbours(cell):
-    x, y, z = cell
-    return [(x + dx, y + dy, z + dz) for dx, dy, dz in D_CELL]
+    D_CELL = D_CELL4
+    if len(cell) == 3:
+        D_CELL = D_CELL3
+    return [tuple(c + d_cell[i] for i, c in enumerate(cell)) for d_cell in D_CELL]
+
+ass(D_CELL3, get_neighbours, (0, 0, 0))
+ass(D_CELL4, get_neighbours, (0, 0, 0, 0))
 
 
 # Expects a set of active coordinates
@@ -57,6 +63,7 @@ TEST_FIELD = """.#.
 """.split()
 
 ass(112, simulate_cycles, transform_input_field_into_active_set(TEST_FIELD), 6)
+ass(848, simulate_cycles, transform_input_field_into_active_set(TEST_FIELD, dimensions=4), 6)
 
 
 def main():
@@ -64,6 +71,8 @@ def main():
         lines = [line.strip() for line in infile.readlines()]
         active_set = transform_input_field_into_active_set(lines)
         print(simulate_cycles(active_set, 6))
+        active_set4 = transform_input_field_into_active_set(lines, dimensions=4)
+        print(simulate_cycles(active_set4, 6))
 
 
 
