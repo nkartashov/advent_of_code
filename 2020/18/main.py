@@ -62,35 +62,25 @@ assrt([
     Token(op=Op.MULT), Token(int_val=5), Token(paren=Paren.RIGHT)
 ], tokenize_expression, "22 * 3 + (4 * 5)")
 
-# Left paren -> corresponding right paren
-def get_paren_idxs(tokens):
-    result = dict()
-    stack = []
-    for i, token in enumerate(tokens):
-        if token.paren == Paren.RIGHT:
-            result[stack.pop()] = i
-        if token.paren == Paren.LEFT:
-            stack.append(i)
-    return result
-        
-
 def eval_expression(tokens):
-    return eval_expression_helper(tokens, 0, len(tokens), get_paren_idxs(tokens))
+    return eval_expression_helper(tokens, 0)[0]
 
-def eval_expression_helper(tokens, start, end, paren_idxs):
-    result = 0
+def eval_expression_helper(tokens, start):
     i = start
 
     def eval_arg(i):
         if tokens[i].int_val is not None:
             return tokens[i].int_val, i + 1
-
         # It can only be a parenthesized expression.
-        return eval_expression_helper(tokens, i + 1, paren_idxs[i], paren_idxs), paren_idxs[i] + 1
+        result, i = eval_expression_helper(tokens, i + 1)
+        return result, i + 1
+
+    def has_not_finished(i):
+        return i < len(tokens) and tokens[i].paren != Paren.RIGHT
         
     result, i = eval_arg(i)
 
-    while i < end:
+    while has_not_finished(i):
         op = tokens[i]
         right_arg, i = eval_arg(i + 1)
         if op.op == Op.SUM:
@@ -98,7 +88,7 @@ def eval_expression_helper(tokens, start, end, paren_idxs):
         else:
             result *= right_arg
 
-    return result
+    return result, i
 
 assrt(26, eval_expression, tokenize_expression('2 * 3 + (4 * 5)'))
 assrt(13632, eval_expression, tokenize_expression('((2 + 4 * 9) * (6 + 9 * 8 + 6) + 6) + 2 + 4 * 2'))
@@ -118,13 +108,13 @@ def eval_expression_helper_advanced(tokens, start):
         result, new_i = eval_expression_helper_advanced(tokens, i + 1)
         return result, new_i + 1
 
-    def has_note_finished(i):
+    def has_not_finished(i):
         return i < len(tokens) and tokens[i].paren != Paren.RIGHT
 
     result, i = eval_arg(start)
     # term * term
     current_terms = []
-    while has_note_finished(i):
+    while has_not_finished(i):
         op = tokens[i]
         if op.op == Op.SUM:
             right_arg, i = eval_arg(i + 1)
