@@ -103,13 +103,53 @@ def eval_expression_helper(tokens, start, end, paren_idxs):
 assrt(26, eval_expression, tokenize_expression('2 * 3 + (4 * 5)'))
 assrt(13632, eval_expression, tokenize_expression('((2 + 4 * 9) * (6 + 9 * 8 + 6) + 6) + 2 + 4 * 2'))
 
-def eval_all(lines):
-    return sum(eval_expression(tokenize_expression(line)) for line in lines)
+def eval_all(lines, eval_func=eval_expression):
+    return sum(eval_func(tokenize_expression(line)) for line in lines)
+
+def eval_expression_advanced(tokens):
+    return eval_expression_helper_advanced(tokens, 0)[0]
+
+def eval_expression_helper_advanced(tokens, start):
+    def eval_arg(i):
+        if tokens[i].int_val is not None:
+            return tokens[i].int_val, i + 1
+
+        # It can only be a parenthesized expression.
+        result, new_i = eval_expression_helper_advanced(tokens, i + 1)
+        return result, new_i + 1
+
+    def has_note_finished(i):
+        return i < len(tokens) and tokens[i].paren != Paren.RIGHT
+
+    result, i = eval_arg(start)
+    # term * term
+    current_terms = []
+    while has_note_finished(i):
+        op = tokens[i]
+        if op.op == Op.SUM:
+            right_arg, i = eval_arg(i + 1)
+            result += right_arg
+        else:
+            current_terms.append(result)
+            result, i = eval_arg(i + 1)
+
+    current_terms.append(result)
+        
+    result = 1
+    for term in current_terms:
+        result *= term
+
+    return result, i
+
+assrt(669060, eval_expression_advanced, tokenize_expression('5 * 9 * (7 * 3 * 3 + 9 * 3 + (8 + 6 * 4))'))
+assrt(23340, eval_expression_advanced, tokenize_expression('((2 + 4 * 9) * (6 + 9 * 8 + 6) + 6) + 2 + 4 * 2'))
+
 
 def main():
     with open('in.txt') as infile:
         lines = [line.strip() for line in infile.readlines()]
         print(eval_all(lines))
+        print(eval_all(lines, eval_func=eval_expression_advanced))
 
 
 if __name__ == "__main__":
