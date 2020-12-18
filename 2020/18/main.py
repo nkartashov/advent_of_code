@@ -62,10 +62,54 @@ assrt([
     Token(op=Op.MULT), Token(int_val=5), Token(paren=Paren.RIGHT)
 ], tokenize_expression, "22 * 3 + (4 * 5)")
 
+# Left paren -> corresponding right paren
+def get_paren_idxs(tokens):
+    result = dict()
+    stack = []
+    for i, token in enumerate(tokens):
+        if token.paren == Paren.RIGHT:
+            result[stack.pop()] = i
+        if token.paren == Paren.LEFT:
+            stack.append(i)
+    return result
+        
+
+def eval_expression(tokens):
+    return eval_expression_helper(tokens, 0, len(tokens), get_paren_idxs(tokens))
+
+def eval_expression_helper(tokens, start, end, paren_idxs):
+    result = 0
+    i = start
+
+    def eval_arg(i):
+        if tokens[i].int_val is not None:
+            return tokens[i].int_val, i + 1
+
+        # It can only be a parenthesized expression.
+        return eval_expression_helper(tokens, i + 1, paren_idxs[i], paren_idxs), paren_idxs[i] + 1
+        
+    result, i = eval_arg(i)
+
+    while i < end:
+        op = tokens[i]
+        right_arg, i = eval_arg(i + 1)
+        if op.op == Op.SUM:
+            result += right_arg
+        else:
+            result *= right_arg
+
+    return result
+
+assrt(26, eval_expression, tokenize_expression('2 * 3 + (4 * 5)'))
+assrt(13632, eval_expression, tokenize_expression('((2 + 4 * 9) * (6 + 9 * 8 + 6) + 6) + 2 + 4 * 2'))
+
+def eval_all(lines):
+    return sum(eval_expression(tokenize_expression(line)) for line in lines)
 
 def main():
     with open('in.txt') as infile:
         lines = [line.strip() for line in infile.readlines()]
+        print(eval_all(lines))
 
 
 if __name__ == "__main__":
