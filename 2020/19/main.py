@@ -98,6 +98,12 @@ def main():
     ctx = MatchContext(rules=rules)
     print(count_matching(ctx.rules[0], ctx, lines))
 
+    rules[8] = parse_rule('8: 42 | 42 8')[1]
+    rules[11] = parse_rule('11: 42 31 | 42 11 31')[1]
+    ctx = MatchContext(rules=rules)
+    print(count_matching(ctx.rules[0], ctx, lines))
+
+
 
 if __name__ == "__main__":
     main()
