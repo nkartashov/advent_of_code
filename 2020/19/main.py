@@ -16,43 +16,39 @@ def set_sum(args):
         result = result | arg
     return result
 
-class MatchContext(NamedTuple):
-    rules: Dict[int, 'Rule']
-    cache: Dict[int, Set[int]] = dict()
-
 class Rule(NamedTuple):
     alternatives: List['Rule'] = []
     sequence: List['Rule'] = []
     ref_id: int = None
     literal: str = None
 
-    def does_match(self, ctx: MatchContext, expression: str) -> bool:
-        return len(expression) in self.match(expression, ctx)
+    def does_match(self, expression: str, rules) -> bool:
+        return len(expression) in self.match(expression, rules)
 
     # Returns a set of indices where the match ended if successful, or empty set
     # otherwise.
-    def match(self, expression: str, ctx: MatchContext, start: int = 0) -> Set[int]:
+    def match(self, expression: str, rules, start: int = 0) -> Set[int]:
         if self.alternatives:
-            return self._match_alternatives(expression, ctx, start)
+            return self._match_alternatives(expression, rules, start)
 
         if self.sequence:
-            return self._match_sequence(expression, ctx, start)
+            return self._match_sequence(expression, rules, start)
 
         if self.ref_id is not None:
-            return ctx.rules[self.ref_id].match(expression, ctx, start)
+            return rules[self.ref_id].match(expression, rules, start)
         
         if expression[start:].startswith(self.literal):
             return {start + len(self.literal)}
 
         return set()
 
-    def _match_alternatives(self, expression: str, ctx: MatchContext, start: int) -> Set[int]:
-        return set_sum([alt.match(expression, ctx, start) for alt in self.alternatives])
+    def _match_alternatives(self, expression: str, rules, start: int) -> Set[int]:
+        return set_sum([alt.match(expression, rules, start) for alt in self.alternatives])
 
-    def _match_sequence(self, expression: str, ctx: MatchContext, start: int) -> Set[int]:
+    def _match_sequence(self, expression: str, rules, start: int) -> Set[int]:
         matches = {start}
         for seq in self.sequence:
-            matches = set_sum([seq.match(expression, ctx, match) for match in matches])
+            matches = set_sum([seq.match(expression, rules, match) for match in matches])
         return matches
 
 
@@ -83,8 +79,8 @@ REF_3 = Rule(ref_id=3)
 
 assrt((1, Rule(alternatives=[Rule(sequence=[REF_2, REF_3]), Rule(sequence=[REF_3, REF_2])])), parse_rule, "1: 2 3 | 3 2")
 
-def count_matching(rule: Rule, ctx: MatchContext, expressions: List[str]) -> int:
-    return sum([1 for expression in expressions if rule.does_match(ctx, expression)])
+def count_matching(rule: Rule, rules, expressions: List[str]) -> int:
+    return sum([1 for expression in expressions if rule.does_match(expression, rules)])
 
 def main():
     lines = None
@@ -95,13 +91,11 @@ def main():
         for line in infile.readlines():
             rule_id, rule = parse_rule(line.strip())
             rules[rule_id] = rule
-    ctx = MatchContext(rules=rules)
-    print(count_matching(ctx.rules[0], ctx, lines))
+    print(count_matching(rules[0], rules, lines))
 
     rules[8] = parse_rule('8: 42 | 42 8')[1]
     rules[11] = parse_rule('11: 42 31 | 42 11 31')[1]
-    ctx = MatchContext(rules=rules)
-    print(count_matching(ctx.rules[0], ctx, lines))
+    print(count_matching(rules[0], rules, lines))
 
 
 
