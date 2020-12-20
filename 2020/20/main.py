@@ -3,10 +3,6 @@ from enum import Enum
 from collections import defaultdict
 from copy import deepcopy
 from itertools import product
-from functools import lru_cache
-import random as rnd
-
-rnd.seed(42)
 
 def assrt(want, f, *args, **kwargs):
     got = f(*args, **kwargs)
@@ -17,13 +13,6 @@ def set_sum(args):
     result = set()
     for arg in args:
         result = result | arg
-    return result
-
-def flatten(l):
-    result = []
-    for sublist in l:
-        for item in sublist:
-            result.append(item)
     return result
 
 def to_binary(code):
@@ -46,10 +35,10 @@ def generate_variants(descriptor):
         (b, c, d, a),
         (c, d, a, b),
         (d, a, b, c),
-        (flip(c), flip(b), flip(a), flip(d)),
-        (flip(a), flip(d), flip(c), flip(b)),
-        (flip(d), flip(c), flip(b), flip(a)),
-        (flip(b), flip(a), flip(d), flip(c)),
+        (flip(c), flip(b), flip(a), flip(d)), # horizontal flip
+        (flip(a), flip(d), flip(c), flip(b)), # vertical flip
+        (flip(d), flip(c), flip(b), flip(a)), # rotate -> horizontal flip 
+        (flip(b), flip(a), flip(d), flip(c)), # rotate -> vertical flip
     ]
 
 class Tile(NamedTuple):
@@ -58,12 +47,45 @@ class Tile(NamedTuple):
 
     @property
     def desc(self):
-        return (to_binary(code) for code in (
+        return tuple(to_binary(code) for code in (
             self.data[0],
             (row[-1] for row in self.data),
-            reversed([row[0] for row in self.data]),
             reversed(self.data[-1]),
+            reversed([row[0] for row in self.data]),
         ))
+
+    @property
+    def variants(self):
+        return generate_variants(self.desc)
+
+    @property
+    def pp(self):
+        return '\n'.join(self.data)
+
+    def rotate(self):
+        return Tile(self.tile_id, [''.join(row) for row in zip(*self.data)][::-1])
+
+    def horizontal_flip(self):
+        return Tile(self.tile_id, self.data[::-1])
+
+    def vertical_flip(self):
+        return Tile(self.tile_id, [row[::-1] for row in self.data])
+
+    def set_to_variant(self, variant_idx):
+        # See generate variants
+        result = self
+        if variant_idx < 4:
+            while variant_idx > 0:
+                variant_idx -= 1
+                result = result.rotate()
+            return result
+
+        if variant_idx >= 6:
+            result = result.rotate()
+
+        if variant_idx % 2 == 0:
+            return result.horizontal_flip()
+        return result.vertical_flip()
 
 
 def read_tiles(lines):
@@ -98,6 +120,15 @@ def read_test_tiles():
 TEST_TILES = read_test_tiles()
 TEST_OUTER_TILE_IDS = {1951, 2311, 3079, 2473, 1171, 1489, 2971, 2729}
 
+def test_set_variant():
+    tile = TEST_TILES[0]
+    for i, expected in enumerate(tile.variants):
+        actual = tile.set_to_variant(i).desc
+        if actual != expected:
+            print(f"set_to_variant returned {actual} for variant {i}, expected {expected}")
+        
+test_set_variant()
+
 def test_get_border_tiles():
     actual = {tile.tile_id for tile in get_border_tiles(TEST_TILES)}
     if actual != TEST_OUTER_TILE_IDS:
@@ -105,7 +136,7 @@ def test_get_border_tiles():
 
 test_get_border_tiles()
 
-def get_corner_tiles(border_tiles, all_tiles):
+def get_corner_tiles(border_tiles, inner_tiles):
     # Corner tiles don't have any edges coming into them from non-border tiles.
     border_tiles = {tile.tile_id: tile for tile in border_tiles}
     corner_tiles = deepcopy(border_tiles)
@@ -115,9 +146,7 @@ def get_corner_tiles(border_tiles, all_tiles):
             for edge in desc:
                 available_edges[edge] = tile
 
-    for tile in all_tiles:
-        if tile.tile_id in border_tiles:
-            continue
+    for tile in inner_tiles:
         for desc in generate_variants(tile.desc):
             for edge in desc:
                 if edge in available_edges:
@@ -159,7 +188,7 @@ def connect_border_tiles(corner_tiles, border_tiles):
             break
 
     connect_tiles(top_left_tile.tile_id, last_added.tile_id)
-    return top_left_tile.tile_id, connections
+    return top_left_tile, connections
 
 TEST_CONNECTIONS = {
     1951: {2311, 2729},
@@ -174,12 +203,41 @@ TEST_CONNECTIONS = {
 
 def test_connect_border_tiles():
     border_tiles = get_border_tiles(TEST_TILES)
-    corner_tiles = get_corner_tiles(border_tiles, TEST_TILES)
+    inner_tiles = [tile for tile in TEST_TILES if tile not in border_tiles]
+    corner_tiles = get_corner_tiles(border_tiles, inner_tiles)
     start, connections = connect_border_tiles(corner_tiles, border_tiles)
     if connections != TEST_CONNECTIONS:
         print(f"connect_border_tiles returned {got}, expected {want}")
 
 test_connect_border_tiles()
+
+def recover_border_tiles(start, border_tiles, corner_tiles, inner_tiles, connections):
+    side_size = len(connections) / 4 + 1
+    border_tiles = {tile.tile_id: tile for tile in border_tiles}
+    right_tile_id, bottom_tile_id = connections[start.tile_id]
+    right_tile = border_tiles[right_tile_id]
+    bottom_tile = border_tiles[bottom_tile_id]
+
+    def update_tile_to_variant(tile, variant):
+        border_tiles[tile.tile_id] = tile.set_to_variant(variant)
+
+    # Establishing start tile as the top left corner sets all the border tiles in
+    # a unique way up to full inversion which is handled later.
+    found = False
+    for i, (sa, sb, sc, sd) in enumerate(start.variants):
+        if found:
+            break
+        for j, (ra, rb, rc, rd) in enumerate(right_tile.variants):
+            if found:
+                break
+            for k, (ba, bb, bc, bd) in enumerate(bottom_tile.variants):
+                if sb == flip(rd) and flip(sc) == ba:
+                    update_tile_to_variant(start, i)
+                    update_tile_to_variant(right_tile, j)
+                    update_tile_to_variant(bottom_tile, k)
+                    found = True
+                    break
+
 
 def get_answer(corner_tiles):
     result = 1
@@ -193,9 +251,11 @@ def main():
         lines = [line.strip() for line in infile.readlines()]
         tiles = read_tiles(lines)
         border_tiles = get_border_tiles(tiles)
-        corner_tiles = get_corner_tiles(border_tiles, tiles)
+        inner_tiles = [tile for tile in tiles if tile not in border_tiles]
+        corner_tiles = get_corner_tiles(border_tiles, inner_tiles)
         print(get_answer(corner_tiles))
-        connect_border_tiles(corner_tiles, border_tiles)
+        start, connections = connect_border_tiles(corner_tiles, border_tiles)
+        recover_border_tiles(start, border_tiles, corner_tiles, inner_tiles, connections)
 
 
 
