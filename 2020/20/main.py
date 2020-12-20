@@ -249,7 +249,7 @@ def recover_border_tiles(start, border_tiles, corner_tiles, inner_tiles, connect
 
     recovered_tile_ids = [start.tile_id, right_tile_id]
     current = right_tile
-    for _ in range(1, side_size):
+    for _ in range(side_size):
         new_tile = get_connected_tile(current, recovered_tile_ids)
         _, b, _, _ = current.desc
         for i, (_, _, _, d) in enumerate(new_tile.variants):
@@ -258,6 +258,40 @@ def recover_border_tiles(start, border_tiles, corner_tiles, inner_tiles, connect
                 recovered_tile_ids.append(current.tile_id)
                 break
 
+    assert(len(recovered_tile_ids) == side_size)
+
+    for _ in range(side_size):
+        new_tile = get_connected_tile(current, recovered_tile_ids)
+        _, _, c, _ = current.desc
+        for i, (a, _, _, _) in enumerate(new_tile.variants):
+            if c == flip(a):
+                current = update_tile_to_variant(new_tile, i)
+                recovered_tile_ids.append(current.tile_id)
+                break
+
+    assert(len(recovered_tile_ids) == 2 * side_size - 1)
+
+    for _ in range(side_size):
+        new_tile = get_connected_tile(current, recovered_tile_ids)
+        _, _, _, d = current.desc
+        for i, (_, b, _, _) in enumerate(new_tile.variants):
+            if d == flip(b):
+                current = update_tile_to_variant(new_tile, i)
+                recovered_tile_ids.append(current.tile_id)
+                break
+
+    assert(len(recovered_tile_ids) == 3 * side_size - 2)
+
+    for _ in range(side_size - 2):
+        new_tile = get_connected_tile(current, recovered_tile_ids)
+        a, _, _, _ = current.desc
+        for i, (_, _, c, _) in enumerate(new_tile.variants):
+            if a == flip(c):
+                current = update_tile_to_variant(new_tile, i)
+                recovered_tile_ids.append(current.tile_id)
+                break
+
+    assert(len(recovered_tile_ids) == len(border_tiles))
 
 
 def get_answer(corner_tiles):
