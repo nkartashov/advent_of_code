@@ -19,6 +19,13 @@ def set_sum(args):
         result = result | arg
     return result
 
+def flatten(l):
+    result = []
+    for sublist in l:
+        for item in sublist:
+            result.append(item)
+    return result
+
 def to_binary(code):
     def mapper(x):
         if x == '#':
@@ -44,7 +51,6 @@ def generate_variants(descriptor):
         (flip(d), flip(c), flip(b), flip(a)),
         (flip(b), flip(a), flip(d), flip(c)),
     ]
-    pass
 
 class Tile(NamedTuple):
     tile_id: int
@@ -99,7 +105,7 @@ def test_get_border_tiles():
 
 test_get_border_tiles()
 
-def find_corner_tiles(border_tiles, all_tiles):
+def get_corner_tiles(border_tiles, all_tiles):
     # Corner tiles don't have any edges coming into them from non-border tiles.
     border_tiles = {tile.tile_id: tile for tile in border_tiles}
     corner_tiles = deepcopy(border_tiles)
@@ -121,6 +127,60 @@ def find_corner_tiles(border_tiles, all_tiles):
 
     return list(corner_tiles.values())
 
+def connect_border_tiles(corner_tiles, border_tiles):
+    top_left_tile = corner_tiles[0]
+    # We're gonna iteratively try to find any tile which is connected to the current set via edges.
+    last_added = top_left_tile
+    connections = defaultdict(set)
+    connections[top_left_tile.tile_id] = set()
+
+    def connect_tiles(id1, id2):
+        connections[id1].add(id2)
+        connections[id2].add(id1)
+
+    while True:
+        rest_border_tiles = [tile for tile in border_tiles if tile.tile_id not in connections]
+        found = False
+
+        for tile in rest_border_tiles:
+            if found:
+                break
+            for variant in generate_variants(tile.desc):
+                if found:
+                    break
+                for edge in variant:
+                    if edge in last_added.desc:
+                        parent_id = last_added.tile_id
+                        connect_tiles(parent_id, tile.tile_id)
+                        last_added = tile
+                        found = True
+                        break
+        if not found:
+            break
+
+    connect_tiles(top_left_tile.tile_id, last_added.tile_id)
+    return top_left_tile.tile_id, connections
+
+TEST_CONNECTIONS = {
+    1951: {2311, 2729},
+    2311: {1951, 3079},
+    3079: {2311, 2473},
+    2473: {3079, 1171},
+    1171: {2473, 1489},
+    1489: {1171, 2971},
+    2971: {1489, 2729},
+    2729: {2971, 1951},
+}
+
+def test_connect_border_tiles():
+    border_tiles = get_border_tiles(TEST_TILES)
+    corner_tiles = get_corner_tiles(border_tiles, TEST_TILES)
+    start, connections = connect_border_tiles(corner_tiles, border_tiles)
+    if connections != TEST_CONNECTIONS:
+        print(f"connect_border_tiles returned {got}, expected {want}")
+
+test_connect_border_tiles()
+
 def get_answer(corner_tiles):
     result = 1
     for tile in corner_tiles:
@@ -133,8 +193,9 @@ def main():
         lines = [line.strip() for line in infile.readlines()]
         tiles = read_tiles(lines)
         border_tiles = get_border_tiles(tiles)
-        corner_tiles = find_corner_tiles(border_tiles, tiles)
+        corner_tiles = get_corner_tiles(border_tiles, tiles)
         print(get_answer(corner_tiles))
+        connect_border_tiles(corner_tiles, border_tiles)
 
 
 
