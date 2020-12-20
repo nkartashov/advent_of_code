@@ -76,14 +76,13 @@ def read_tiles(lines):
 
 def get_border_tiles(tiles):
     horizontal_set = defaultdict(list)
-    for i, tile in enumerate(tiles):
+    for tile in tiles:
         for desc in generate_variants(tile.desc):
             a, b, c, d = desc
-            horizontal_set[a].append(i)
-            horizontal_set[c].append(i)
-
-    outer_tile_idxs = set_sum([set(ms) for d, ms in horizontal_set.items() if len(ms) == 2])
-    return [tiles[idx] for idx in outer_tile_idxs]
+            horizontal_set[a].append(tile.tile_id)
+            horizontal_set[c].append(tile.tile_id)
+    outer_tile_ids = set_sum([set(ms) for d, ms in horizontal_set.items() if len(ms) == 2])
+    return [tile for tile in tiles if tile.tile_id in outer_tile_ids]
 
 def read_test_tiles():
     with open('test_tiles.txt') as infile:
@@ -100,10 +99,33 @@ def test_get_border_tiles():
 
 test_get_border_tiles()
 
-def find_corner_tiles(border_tiles):
-    
-    pass
-	
+def find_corner_tiles(border_tiles, all_tiles):
+    # Corner tiles don't have any edges coming into them from non-border tiles.
+    border_tiles = {tile.tile_id: tile for tile in border_tiles}
+    corner_tiles = deepcopy(border_tiles)
+    available_edges = dict()
+    for tile in border_tiles.values():
+        for desc in generate_variants(tile.desc):
+            for edge in desc:
+                available_edges[edge] = tile
+
+    for tile in all_tiles:
+        if tile.tile_id in border_tiles:
+            continue
+        for desc in generate_variants(tile.desc):
+            for edge in desc:
+                if edge in available_edges:
+                    not_corner_tile_id = available_edges[edge].tile_id
+                    if not_corner_tile_id in corner_tiles:
+                        del corner_tiles[not_corner_tile_id]
+
+    return list(corner_tiles.values())
+
+def get_answer(corner_tiles):
+    result = 1
+    for tile in corner_tiles:
+        result *= tile.tile_id
+    return result
 
 def main():
     lines = None
@@ -111,6 +133,8 @@ def main():
         lines = [line.strip() for line in infile.readlines()]
         tiles = read_tiles(lines)
         border_tiles = get_border_tiles(tiles)
+        corner_tiles = find_corner_tiles(border_tiles, tiles)
+        print(get_answer(corner_tiles))
 
 
 
