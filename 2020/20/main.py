@@ -211,32 +211,53 @@ def test_connect_border_tiles():
 
 test_connect_border_tiles()
 
+
+
 def recover_border_tiles(start, border_tiles, corner_tiles, inner_tiles, connections):
-    side_size = len(connections) / 4 + 1
+    side_size = len(connections) // 4 + 1
     border_tiles = {tile.tile_id: tile for tile in border_tiles}
     right_tile_id, bottom_tile_id = connections[start.tile_id]
     right_tile = border_tiles[right_tile_id]
     bottom_tile = border_tiles[bottom_tile_id]
 
     def update_tile_to_variant(tile, variant):
-        border_tiles[tile.tile_id] = tile.set_to_variant(variant)
+        updated = tile.set_to_variant(variant)
+        border_tiles[tile.tile_id] = updated
+        return updated
 
     # Establishing start tile as the top left corner sets all the border tiles in
     # a unique way up to full inversion which is handled later.
     found = False
-    for i, (sa, sb, sc, sd) in enumerate(start.variants):
+    for i, (_, sb, sc, _) in enumerate(start.variants):
         if found:
             break
-        for j, (ra, rb, rc, rd) in enumerate(right_tile.variants):
+        for j, (_, _, _, rd) in enumerate(right_tile.variants):
             if found:
                 break
-            for k, (ba, bb, bc, bd) in enumerate(bottom_tile.variants):
+            for k, (ba, _, _, _) in enumerate(bottom_tile.variants):
                 if sb == flip(rd) and flip(sc) == ba:
                     update_tile_to_variant(start, i)
-                    update_tile_to_variant(right_tile, j)
+                    right_tile = update_tile_to_variant(right_tile, j)
                     update_tile_to_variant(bottom_tile, k)
                     found = True
                     break
+
+    def get_connected_tile(tile, avoid):
+        for tile_id in connections[tile.tile_id]:
+            if tile_id not in avoid:
+                return border_tiles[tile_id]
+
+    recovered_tile_ids = [start.tile_id, right_tile_id]
+    current = right_tile
+    for _ in range(1, side_size):
+        new_tile = get_connected_tile(current, recovered_tile_ids)
+        _, b, _, _ = current.desc
+        for i, (_, _, _, d) in enumerate(new_tile.variants):
+            if b == flip(d):
+                current = update_tile_to_variant(new_tile, i)
+                recovered_tile_ids.append(current.tile_id)
+                break
+
 
 
 def get_answer(corner_tiles):
