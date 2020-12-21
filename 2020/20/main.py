@@ -3,6 +3,7 @@ from enum import Enum
 from collections import defaultdict
 from copy import deepcopy
 from itertools import product
+import math
 
 def assrt(want, f, *args, **kwargs):
     got = f(*args, **kwargs)
@@ -62,6 +63,11 @@ class Tile(NamedTuple):
     def pp(self):
         return '\n'.join(self.data)
 
+    def ppp(self):
+        print()
+        print(self.pp)
+        print()
+
     def rotate(self):
         return Tile(self.tile_id, [''.join(row) for row in zip(*self.data)][::-1])
 
@@ -101,7 +107,6 @@ def read_tiles(lines):
 
     return result
 
-
 def get_border_tiles(tiles):
     horizontal_set = defaultdict(list)
     for tile in tiles:
@@ -110,6 +115,8 @@ def get_border_tiles(tiles):
             horizontal_set[a].append(tile.tile_id)
             horizontal_set[c].append(tile.tile_id)
     outer_tile_ids = set_sum([set(ms) for d, ms in horizontal_set.items() if len(ms) == 2])
+
+    assert(len(outer_tile_ids) == int(math.sqrt(len(tiles))) * 4 - 4)
     return [tile for tile in tiles if tile.tile_id in outer_tile_ids]
 
 def read_test_tiles():
@@ -188,7 +195,8 @@ def connect_border_tiles(corner_tiles, border_tiles):
             break
 
     connect_tiles(top_left_tile.tile_id, last_added.tile_id)
-    return top_left_tile, connections
+    assert(all(len(vs) == 2 for vs in connections.values()) or len(border_tiles) == 1)
+    return connections
 
 TEST_CONNECTIONS = {
     1951: {2311, 2729},
@@ -205,25 +213,28 @@ def test_connect_border_tiles():
     border_tiles = get_border_tiles(TEST_TILES)
     inner_tiles = [tile for tile in TEST_TILES if tile not in border_tiles]
     corner_tiles = get_corner_tiles(border_tiles, inner_tiles)
-    start, connections = connect_border_tiles(corner_tiles, border_tiles)
+    connections = connect_border_tiles(corner_tiles, border_tiles)
     if connections != TEST_CONNECTIONS:
         print(f"connect_border_tiles returned {got}, expected {want}")
 
 test_connect_border_tiles()
 
 
-
-def recover_border_tiles(start, border_tiles, corner_tiles, inner_tiles, connections):
-    side_size = len(connections) // 4 + 1
+def recover_border_tiles(start, border_tiles, connections):
+    side_size = len(border_tiles) // 4 + 1
     border_tiles = {tile.tile_id: tile for tile in border_tiles}
-    right_tile_id, bottom_tile_id = connections[start.tile_id]
-    right_tile = border_tiles[right_tile_id]
-    bottom_tile = border_tiles[bottom_tile_id]
 
     def update_tile_to_variant(tile, variant):
         updated = tile.set_to_variant(variant)
         border_tiles[tile.tile_id] = updated
         return updated
+
+    if side_size == 1:
+        return [[start]], None
+
+    bottom_tile_id, right_tile_id = connections[start.tile_id]
+    right_tile = border_tiles[right_tile_id]
+    bottom_tile = border_tiles[bottom_tile_id]
 
     # Establishing start tile as the top left corner sets all the border tiles in
     # a unique way up to full inversion which is handled later.
@@ -236,18 +247,20 @@ def recover_border_tiles(start, border_tiles, corner_tiles, inner_tiles, connect
                 break
             for k, (ba, _, _, _) in enumerate(bottom_tile.variants):
                 if sb == flip(rd) and flip(sc) == ba:
-                    update_tile_to_variant(start, i)
+                    start = update_tile_to_variant(start, i)
                     right_tile = update_tile_to_variant(right_tile, j)
-                    update_tile_to_variant(bottom_tile, k)
+                    bottom_tile = update_tile_to_variant(bottom_tile, k)
                     found = True
                     break
+
+    assert(found)
 
     def get_connected_tile(tile, avoid):
         for tile_id in connections[tile.tile_id]:
             if tile_id not in avoid:
                 return border_tiles[tile_id]
 
-    recovered_tile_ids = [start.tile_id, right_tile_id]
+    recovered_tile_ids = [start.tile_id, right_tile.tile_id]
     current = right_tile
     for _ in range(side_size):
         new_tile = get_connected_tile(current, recovered_tile_ids)
@@ -292,7 +305,72 @@ def recover_border_tiles(start, border_tiles, corner_tiles, inner_tiles, connect
                 break
 
     assert(len(recovered_tile_ids) == len(border_tiles))
+    assert(recovered_tile_ids[-1] == bottom_tile.tile_id)
+    assert(start.desc[2] == flip(bottom_tile.desc[0]))
 
+    recovered_tiles = [border_tiles[i] for i in recovered_tile_ids]
+    return postprocess_recovered_tiles(recovered_tiles, side_size)
+
+def postprocess_recovered_tiles(tiles, side_size):
+    result = []
+    result.append(tiles[:side_size])
+    for i in range(1, side_size - 1):
+        result.append([])
+    result.append(list(reversed(tiles[2 * side_size - 1: 3 * side_size])))
+    for i in range(1, side_size - 1):
+        result[i].append(tiles[-i])
+        result[i].append(tiles[side_size + i])
+
+    return result
+
+def recover_image(tiles):
+    border_tiles = get_border_tiles(tiles)
+    inner_tiles = [tile for tile in tiles if tile not in border_tiles]
+    corner_tiles = get_corner_tiles(border_tiles, inner_tiles)
+    connections = connect_border_tiles(corner_tiles, border_tiles)
+    recovered_tiles = recover_border_tiles(corner_tiles[0], border_tiles, connections)
+    # if len(tiles) < 9:
+    #     return recovered_tiles
+    inner_tiles = {tile.tile_id: tile for tile in inner_tiles}
+
+    def find_expected_tile(expected_a, expected_d):
+        for tile_id, tile in inner_tiles.items():
+            for i, (a, _, _, d) in enumerate(tile.variants):
+                if expected_a == flip(a) and expected_d == flip(d):
+                    tile = tile.set_to_variant(i)
+                    del inner_tiles[tile_id]
+                    return tile
+
+    expected_a, _, _, _ = recovered_tiles[0][1].desc
+    _, _, _, expected_d = recovered_tiles[1][0].desc
+    tile = find_expected_tile(expected_a, expected_d)
+
+    if tile is None:
+        # It means that the tile is bottom right corner so we should flip the board.
+        recovered_tiles = [[tile.horizontal_flip().vertical_flip() for tile in row[::-1]] for row in recovered_tiles[::-1]]
+
+    result = [recovered_tiles[0]]
+    side_size = len(recovered_tiles[0])
+    for i in range(1, side_size - 1):
+        result.append([recovered_tiles[i][0]])
+        for j in range(1, side_size - 1):
+            expected_a, _, _, _ = result[i - 1][j].desc
+            _, _, _, expected_d = result[i][j - 1].desc
+            t = find_expected_tile(expected_a, expected_d)
+            assert t is not None
+            result.append(t)
+
+        result.append([recovered_tiles[i][-1]])
+
+    result.append(recovered_tiles[-1])
+
+    # instead of a recursive call, try recovering the image tile by tile using knowledge of left and upper tile for a given missing tile
+    # inner_image = recover_image(inner_tiles, expected_orientation)
+    # result = [recovered_tiles[0]]
+    # for i, row in enumerate(inner_image):
+    #     result.append([recovered_tiles[i + 1][0]] + row + [recovered_tiles[i + 1][-1]])
+    # result.append(recovered_tiles[-1])
+    return result
 
 def get_answer(corner_tiles):
     result = 1
@@ -309,8 +387,7 @@ def main():
         inner_tiles = [tile for tile in tiles if tile not in border_tiles]
         corner_tiles = get_corner_tiles(border_tiles, inner_tiles)
         print(get_answer(corner_tiles))
-        start, connections = connect_border_tiles(corner_tiles, border_tiles)
-        recover_border_tiles(start, border_tiles, corner_tiles, inner_tiles, connections)
+        image = recover_image(tiles)        
 
 
 
