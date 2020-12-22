@@ -77,20 +77,26 @@ def count_ingredients_with_no_known_allergens(dishes, ingredients_with_known_all
         result += sum(1 for ingredient in dish.ingredients if ingredient not in ingredients_with_known_allergens)
     return result
 
-
+def produce_canonical_allegen_list(ingredients_with_known_allergens):
+    return ','.join(ingredient for ingredient, _ in sorted(ingredients_with_known_allergens.items(), key=lambda x: x[1]))
 
 def read_input(filename='in.txt'):
     with open(filename) as infile:
         return [parse_line(line.strip()) for line in infile.readlines()]
 
 TEST_DISHES = read_input(filename='test_dishes.txt')
-assrt(5, count_ingredients_with_no_known_allergens, TEST_DISHES, reconsile_dishes(TEST_DISHES))
+TEST_ALLERGENS = reconsile_dishes(TEST_DISHES)
+TEST_CANONICAL_ALLERGEN_LIST = 'mxmxvkd,sqjhc,fvjkl'
+
+assrt(5, count_ingredients_with_no_known_allergens, TEST_DISHES, TEST_ALLERGENS)
+assrt(TEST_CANONICAL_ALLERGEN_LIST, produce_canonical_allegen_list, TEST_ALLERGENS)
 
 
 def main():
     dishes = read_input()
     known_allergens = reconsile_dishes(dishes)
     print(count_ingredients_with_no_known_allergens(dishes, known_allergens))
+    print(produce_canonical_allegen_list(known_allergens))
 
 
 if __name__ == "__main__":
