@@ -4,6 +4,7 @@ from collections import defaultdict
 from copy import deepcopy
 from itertools import product
 from functools import lru_cache
+from tqdm import tqdm
 
 def assrt(want, f, *args, **kwargs):
     got = f(*args, **kwargs)
@@ -21,16 +22,24 @@ class Node:
         self._value = value
         self._next = None
 
-def get_cups(data):
+def get_cups(data, total_values=0):
     values = [int(ch) for ch in data]
-    first = Node(values[0]) 
-    current = first
-    for value in values[1:]:
+    fake = Node(-1)
+    current = fake
+
+    def add_node(value):
         node = Node(value)
         current._next = node
-        current = current._next
-    current._next = first
-    return first
+        return current._next
+
+    values_to_populate = values + [i for i in range(len(values) + 1, total_values + 1)]
+    assert(len(values_to_populate) == max(len(values), total_values))
+
+    for value in values_to_populate:
+        current = add_node(value)
+
+    current._next = fake._next
+    return fake._next
 
 def get_cup_map(first_cup):
     current = first_cup
@@ -45,7 +54,7 @@ def get_cup_map(first_cup):
 def play(first_cup, moves):
     current = first_cup
     value_to_cup = get_cup_map(first_cup)
-    for _ in range(moves):
+    for _ in tqdm(range(moves)):
         taken = current._next
         current._next = taken._next._next._next
         dest_value = current._value
@@ -61,7 +70,11 @@ def play(first_cup, moves):
         taken._next._next._next = old_dest_next
         current = current._next
 
-    return produce_result(value_to_cup)
+    return value_to_cup
+
+def part1(first_cup, moves):
+    return produce_result(play(first_cup, moves))
+
 
 def produce_result(cup_map):
     current = cup_map[1]._next
@@ -72,15 +85,24 @@ def produce_result(cup_map):
 
     return ''.join(result)
 
-def get_test_data():
-    return get_cups('389125467')
+def get_test_data(total_values=0):
+    return get_cups('389125467', total_values=total_values)
 
-assrt('92658374', play, get_test_data(), 10)
-assrt('67384529', play, get_test_data(), 100)
+assrt('92658374', part1, get_test_data(), 10)
+assrt('67384529', part1, get_test_data(), 100)
+
+def part2(first_cup):
+    value_to_cup = play(first_cup, 10 ** 7)
+    first_cup = value_to_cup[1]._next
+    second_cup = first_cup._next
+    return first_cup._value * second_cup._value
+
+assrt(149245887792, part2, get_test_data(10 ** 6))
 
 def main():
     input_data = '469217538'
-    print(play(get_cups(input_data), 100))
+    print(part1(get_cups(input_data), 100))
+    print(part2(get_cups(input_data, 10 ** 6)))
 
 
 if __name__ == "__main__":
