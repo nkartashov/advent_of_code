@@ -65,7 +65,7 @@ def process_directions(directions):
 
 assrt((0, 0, 0), process_directions, TEST_DIRECTIONS)
 
-def part1(lines):
+def get_flipped(lines):
     flipped = set()
     for line in lines:
         position = process_directions(tokenize_input(line))
@@ -73,7 +73,10 @@ def part1(lines):
             flipped.remove(position)
         else:
             flipped.add(position)
-    return len(flipped)
+    return flipped
+
+def part1(lines):
+    return len(get_flipped(lines))
 
 TEST_LINES = """sesenwnenenewseeswwswswwnenewsewsw
 neeenesenwnwwswnenewnwwsewnenwseswesw
@@ -97,6 +100,41 @@ neswnwewnwnwseenwseesewsenwsweewe
 wseweeenwnesenwwwswnew""".split()
 
 assrt(10, part1, TEST_LINES)
+
+D_CELL = [
+    (0, 0, 1),
+    (0, 0, -1),
+    (1, 0, 0),
+    (-1, 0, 0),
+    (0, 1, 0),
+    (0, -1, 0),
+]
+
+def get_neighbours(x, y1, y2):
+    return [to_canonical_form(x + dx, dy1 + dy1, y2 + dy2) for dx, dy1, dy2 in D_CELL]
+
+def simulate_cycle(active_set):
+    flipped_count = defaultdict(int)
+    for cell in active_set:
+        for neighbour in get_neighbours(*cell):
+            flipped_count[neighbour] += 1
+
+    def is_flipped(cell):
+        count = flipped_count[cell]
+        if count == 2:
+            return True
+        return cell in active_set and count == 1
+    
+    return {cell for cell in flipped_count if is_flipped(cell)}
+
+def part2(lines):
+    flipped = get_flipped(lines)
+    for _ in range(100):
+        print(len(flipped))
+        flipped = simulate_cycle(flipped)
+    return len(flipped)
+
+assrt(2208, part2, TEST_LINES)
 
 
 def read_input(filename='in.txt'):
