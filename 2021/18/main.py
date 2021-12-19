@@ -104,6 +104,23 @@ class Node:
         self.set_right(Node(value=right_value, parent=self))
         return True
 
+    def copy(self):
+        if self.is_number():
+            result = Node(value=self._value, parent=None)
+            return result
+
+        result = Node(value=None, parent=None)
+        result.set_left(self._left.copy())
+        result.set_right(self._right.copy())
+        return result
+
+    def __add__(self, other: "Node") -> "Node":
+        result = Node(value=None, parent=None)
+        result.set_left(self.copy())
+        result.set_right(other.copy())
+        result.reduce()
+        return result
+
     def reduce(self):
         def run_explode(node: "Node", depth=0):
             if node.is_pair():
@@ -325,11 +342,7 @@ TEST_NODES5 = parse_input(
 def node_sum(data):
     result = data[0]
     for node in data[1:]:
-        new_result = Node(value=None, parent=None)
-        new_result.set_left(result)
-        new_result.set_right(node)
-        result = new_result
-        result.reduce()
+        result += node
 
     return result
 
@@ -337,18 +350,44 @@ def node_sum(data):
 assrt(TEST_RESULT1, node_sum, TEST_NODES1)
 assrt(TEST_RESULT2, node_sum, TEST_NODES2)
 
+aex(
+    parse_node(
+        [[[[7, 8], [6, 6]], [[6, 0], [7, 7]]], [[[7, 8], [8, 8]], [[7, 9], [0, 6]]]]
+    ),
+    parse_node([[2, [[7, 7], 7]], [[5, 8], [[9, 3], [0, 2]]]])
+    + parse_node([[[0, [5, 8]], [[1, 7], [9, 6]]], [[4, [1, 2]], [[1, 4], 2]]]),
+)
+aex(
+    3993,
+    parse_node(
+        [[[[7, 8], [6, 6]], [[6, 0], [7, 7]]], [[[7, 8], [8, 8]], [[7, 9], [0, 6]]]]
+    ).magnitude(),
+)
+
 
 def solve1(data):
     return node_sum(data).magnitude()
 
 
+def solve2(data) -> int:
+    result = 0
+    for i in range(len(data)):
+        for j in range(i + 1, len(data)):
+            a, b = data[i], data[j]
+            result = max(result, max((a + b).magnitude(), (b + a).magnitude()))
+    return result
+
+
 assrt(4140, solve1, TEST_NODES5)
+
+assrt(3993, solve2, TEST_NODES5)
 
 
 def main():
     with open("in.txt") as infile:
         data = parse_input([line.strip() for line in infile.readlines()])
         print(solve1(data))
+        print(solve2(data))
 
 
 if __name__ == "__main__":
