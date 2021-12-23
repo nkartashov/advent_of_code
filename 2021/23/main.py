@@ -24,53 +24,48 @@ def assrt(want, f, *args, **kwargs):
         aex(want, got, prefix=f"{f.__qualname__}: ")
 
 
-class Type(Enum):
-    A = "A"
-    B = "B"
-    C = "C"
-    D = "D"
+A = "A"
+B = "B"
+C = "C"
+D = "D"
 
-
-class Pod(NamedTuple):
-    type: Type
-    label: int
-
-    def __repr__(self):
-        return self.type.value
-
-
-A1 = Pod(type=Type.A, label=0)
-A2 = Pod(type=Type.A, label=0)
-B1 = Pod(type=Type.B, label=0)
-B2 = Pod(type=Type.B, label=0)
-C1 = Pod(type=Type.C, label=0)
-C2 = Pod(type=Type.C, label=0)
-D1 = Pod(type=Type.D, label=0)
-D2 = Pod(type=Type.D, label=0)
-
-ROOM_TO_TYPE = [Type.A, Type.B, Type.C, Type.D]
+ROOM_TO_TYPE = [A, B, C, D]
 TYPE_TO_ENERGY = {
-    Type.A: 1,
-    Type.B: 10,
-    Type.C: 100,
-    Type.D: 1000,
+    A: 1,
+    B: 10,
+    C: 100,
+    D: 1000,
 }
 
 # First element is top, second is bottom.
 BOTTOM = 1
 TOP = 0
-TEST_INPUT = [
-    [B1, A1],
-    [C1, D1],
-    [B2, C2],
-    [D2, A2],
+TEST_INPUT1 = [
+    [B, A],
+    [C, D],
+    [B, C],
+    [D, A],
 ]
 
-INPUT = [
-    [A1, D1],
-    [C1, D2],
-    [B1, A2],
-    [B2, C2],
+TEST_INPUT2 = [
+    [B, D, D, A],
+    [C, C, B, D],
+    [B, B, A, C],
+    [D, A, C, A],
+]
+
+INPUT1 = [
+    [A, D],
+    [C, D],
+    [B, A],
+    [B, C],
+]
+
+INPUT2 = [
+    [A, D, D, D],
+    [C, C, B, D],
+    [B, B, A, A],
+    [B, A, C, C],
 ]
 
 CORRIDOR_WIDTH = 11
@@ -79,9 +74,9 @@ ROOM_SPOTS = [2, 4, 6, 8]
 BIG_NUMBER = 10 ** 10
 
 
-def debug(state: List[Optional[Pod]], rooms: List[List[Optional[Pod]]]):
-    lines = ["".join(str(x) if x is not None else "." for x in state)]
-    for r in range(2):
+def debug(state: List[Optional[str]], rooms: List[List[Optional[str]]]):
+    lines = ["".join(x if x is not None else "." for x in state)]
+    for r in range(len(rooms[0])):
         row = []
         for i in range(CORRIDOR_WIDTH):
             if i not in ROOM_SPOTS:
@@ -90,22 +85,22 @@ def debug(state: List[Optional[Pod]], rooms: List[List[Optional[Pod]]]):
 
             idx = ROOM_SPOTS.index(i)
             spot = rooms[idx][r]
-            row.append(str(spot) if spot is not None else ".")
+            row.append(spot if spot is not None else ".")
         lines.append("".join(row))
 
     print("\n".join(lines))
     print()
 
 
-def solve1(data: List[List[Pod]]) -> int:
+def run(data: List[List[str]]) -> int:
     cache = dict()
-    state: List[Optional[Pod]] = [None] * CORRIDOR_WIDTH
+    state: List[Optional[str]] = [None] * CORRIDOR_WIDTH
 
     def runner(
-        state: List[Optional[Pod]], rooms: List[List[Optional[Pod]]]
+        state: List[Optional[str]], rooms: List[List[Optional[str]]]
     ) -> Optional[int]:
-        if all(s is None for s in state) and all(
-            all(x is not None and x.type == ROOM_TO_TYPE[i] for x in room)
+        if all(
+            all(x is not None and x == ROOM_TO_TYPE[i] for x in room)
             for i, room in enumerate(rooms)
         ):
             return 0
@@ -116,36 +111,23 @@ def solve1(data: List[List[Pod]]) -> int:
 
             # Amphipod can exit a room.
             for i, room in enumerate(rooms):
-                top, bottom = room
-                if bottom is None:
+                room_type = ROOM_TO_TYPE[i]
+                j = 0
+                while j < len(room) and room[j] is None:
+                    j += 1
+                if j == len(room):
                     # Room is empty.
                     continue
 
-                to_move = None
-                energy_to_leave = 0
-                old_room = deepcopy(room)
+                if all(x == room_type for x in room[j:]):
+                    # Room is finished for now.
+                    continue
 
-                if top is None:
-                    if bottom.type == ROOM_TO_TYPE[i]:
-                        # Already in the right room.
-                        continue
-
-                    # Bottom is the one to move.
-                    to_move = bottom
-                    room[BOTTOM] = None
-                    # Step into top and move to the spot in front of the room.
-                    energy_to_leave = 2 * TYPE_TO_ENERGY[to_move.type]
-                else:
-                    if top.type == ROOM_TO_TYPE[i] and bottom.type == ROOM_TO_TYPE[i]:
-                        # The whole room is finished.
-                        continue
-
-                    # Top is the one to move.
-                    to_move = top
-                    room[TOP] = None
-                    # Move to the spot in front of the room.
-                    energy_to_leave = TYPE_TO_ENERGY[to_move.type]
+                to_move = room[j]
                 assert to_move is not None
+                energy_to_leave = (j + 1) * TYPE_TO_ENERGY[to_move]
+                old_room = deepcopy(room)
+                room[j] = None
 
                 start = ROOM_SPOTS[i]
                 # Go right.
@@ -161,8 +143,8 @@ def solve1(data: List[List[Pod]]) -> int:
                                 result,
                                 # Energy to get out of the room.
                                 energy_to_leave
-                                # Energy to go right.
-                                + TYPE_TO_ENERGY[to_move.type] * step
+                                # Energy to go.
+                                + TYPE_TO_ENERGY[to_move] * step
                                 # Energy to finish the puzzle.
                                 + subresult,
                             )
@@ -181,8 +163,8 @@ def solve1(data: List[List[Pod]]) -> int:
                                 result,
                                 # Energy to get out of the room.
                                 energy_to_leave
-                                # Energy to go right.
-                                + TYPE_TO_ENERGY[to_move.type] * step
+                                # Energy to go.
+                                + TYPE_TO_ENERGY[to_move] * step
                                 # Energy to finish the puzzle.
                                 + subresult,
                             )
@@ -196,22 +178,22 @@ def solve1(data: List[List[Pod]]) -> int:
                     # No amphipod there.
                     continue
 
-                room_idx = ROOM_TO_TYPE.index(x.type)
+                room_idx = ROOM_TO_TYPE.index(x)
                 room = rooms[room_idx]
-                old_room = deepcopy(room)
-                top, bottom = room
-                if top is not None or bottom is not None and bottom.type != x.type:
-                    # Room is full or there is an amphipod of a different type there already.
+
+                if any(y is not None and y != x for y in room):
+                    # Room has amphipods of a different type.
                     continue
 
-                # Energy to step from the room spot into the room.
-                effort_to_enter = TYPE_TO_ENERGY[x.type]
-                if bottom is None:
-                    # We can go to the bottom of the room.
-                    effort_to_enter *= 2
-                    room[BOTTOM] = x
-                else:
-                    room[TOP] = x
+                j = 0
+                # Find the last empty spot.
+                while j < len(room) and room[j] is None:
+                    j += 1
+
+                # Don't need to decrement since we get +1 from the step from the spot into the room.
+                effort_to_enter = j * TYPE_TO_ENERGY[x]
+                old_room = deepcopy(room)
+                room[j - 1] = x
 
                 room_spot = ROOM_SPOTS[room_idx]
                 s, e = i + 1, room_spot + 1
@@ -221,18 +203,18 @@ def solve1(data: List[List[Pod]]) -> int:
                     # Path is clear.
                     state[i] = None
                     subresult = runner(state, rooms)
+                    state[i] = x
                     if subresult is not None:
                         result = min(
                             result,
                             # Energy to enter the room from its spot.
                             effort_to_enter
                             # Energy to get to the spot.
-                            + (e - s) * TYPE_TO_ENERGY[x.type]
+                            + (e - s) * TYPE_TO_ENERGY[x]
                             # Energy to finish the puzzle.
                             + subresult,
                         )
 
-                state[i] = x
                 rooms[room_idx] = old_room
 
             if result == BIG_NUMBER:
@@ -247,11 +229,13 @@ def solve1(data: List[List[Pod]]) -> int:
     return result
 
 
-assrt(12521, solve1, TEST_INPUT)
+assrt(12521, run, TEST_INPUT1)
 
 
 def main():
-    print(solve1(INPUT))
+    res1 = run(INPUT1)
+    assert res1 == 18170
+    print(run(INPUT2))
 
 
 if __name__ == "__main__":
