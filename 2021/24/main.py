@@ -322,7 +322,7 @@ def find_term_expressions(instructions: List[Instruction]) -> List[Term]:
             assert old_iterm.t == IType.ADD
             assert isinstance(old_iterm.terms[1], Literal)
             req = OpTerm(
-                t=IType.NEQ,
+                t=IType.EQL,
                 terms=[
                     OpTerm(
                         t=IType.ADD,
@@ -396,9 +396,11 @@ def main():
     instructions = parse_input()
     _, history = find_term_expressions(instructions)
     for h in history:
-        print(h[1][1])
-    print(solve1(instructions))
-    print(solve2(instructions))
+        req = h[1][1]
+        if req is not None:
+            print(req)
+    solve1(instructions)
+    solve2(instructions)
 
 
 if __name__ == "__main__":
