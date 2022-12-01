@@ -1,11 +1,6 @@
-from typing import List, NamedTuple, Set, Tuple, Optional, Dict, Union, Any
+from typing import List, NamedTuple, Tuple, Union, Any
 from enum import Enum
-from collections import defaultdict, deque, Counter
-from copy import deepcopy
-from itertools import product
-from functools import lru_cache
 import math
-from sortedcontainers import SortedDict
 import functools
 import operator
 
@@ -40,7 +35,7 @@ class Operator(NamedTuple):
     op_type: Type
     subpackets: List[Union[Literal, "Operator"]]
 
-    def eval(self):
+    def eval(self) -> int:
         if self.op_type == Type.SUM:
             return sum(op.eval() for op in self.subpackets)
 
@@ -64,6 +59,8 @@ class Operator(NamedTuple):
 
         if self.op_type == Type.EQ:
             return 1 if a == b else 0
+
+        raise RuntimeError("Unknown op type")
 
 
 def bitstream_to_number(bitstream: List[str]) -> int:
@@ -136,33 +133,32 @@ def parse(bits: List[str], start=0) -> Tuple[Any, int]:
         value, start = read_literal_value(bits, start)
         return Literal(version=version, value=value), start
 
+    subpacket_type_value, start = read_bits(bits, start, SUBPACKET_TYPE_SIZE)
+    subpacket_type = SubpacketType(subpacket_type_value)
+    subpackets = []
+    new_start = -1
+    if subpacket_type == SubpacketType.LENGTH:
+        subpacket_length, start = read_bits(bits, start, SUBPACKET_LENGTH_SIZE)
+        new_start = start + subpacket_length
+        while start < new_start:
+            subpacket, start = parse(bits, start)
+            subpackets.append(subpacket)
+
+    elif subpacket_type == SubpacketType.COUNT:
+        subpacket_count, start = read_bits(bits, start, SUBPACKET_COUNT_SIZE)
+        for _ in range(subpacket_count):
+            subpacket, start = parse(bits, start)
+            subpackets.append(subpacket)
+        new_start = start
+
     else:
-        subpacket_type_value, start = read_bits(bits, start, SUBPACKET_TYPE_SIZE)
-        subpacket_type = SubpacketType(subpacket_type_value)
-        subpackets = []
-        new_start = -1
-        if subpacket_type == SubpacketType.LENGTH:
-            subpacket_length, start = read_bits(bits, start, SUBPACKET_LENGTH_SIZE)
-            new_start = start + subpacket_length
-            while start < new_start:
-                subpacket, start = parse(bits, start)
-                subpackets.append(subpacket)
+        assert False
 
-        elif subpacket_type == SubpacketType.COUNT:
-            subpacket_count, start = read_bits(bits, start, SUBPACKET_COUNT_SIZE)
-            for _ in range(subpacket_count):
-                subpacket, start = parse(bits, start)
-                subpackets.append(subpacket)
-            new_start = start
-
-        else:
-            assert False
-
-        assert new_start != -1
-        return (
-            Operator(version=version, op_type=packet_type, subpackets=subpackets),
-            new_start,
-        )
+    assert new_start != -1
+    return (
+        Operator(version=version, op_type=packet_type, subpackets=subpackets),
+        new_start,
+    )
 
 
 TEST_RESULT_LITERAL = Literal(version=6, value=2021)
