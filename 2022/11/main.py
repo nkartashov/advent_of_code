@@ -1,8 +1,9 @@
-from typing import List, NamedTuple, Tuple, Dict, Union, Callable
+from typing import List, NamedTuple, Tuple, Dict, Union, Callable, Deque
 from enum import Enum
 
 from collections import deque
 from copy import deepcopy
+import math
 
 from tqdm import tqdm
 
@@ -22376,69 +22377,154 @@ INPUT_MONKEYS = [
     Monkey(items=[68, 98, 62], op=AddOp(3), divisor=13, next_true=5, next_false=6),
 ]
 
+Factors = Dict[int, int]
 
-def factor(x: int) -> List[int]:
-    result = []
+
+def factor(x: int) -> Factors:
+    result = dict()
     for d in reversed(PRIMES):
         d_count = 0
         while x % d == 0:
             d_count += 1
             x //= d
-        result.append(d_count)
+        if d_count:
+            result[d] = d_count
 
     return result
 
 
-def unfactor(xs: List[int]) -> int:
-    return sum(p**count for count, p in zip(xs, PRIMES))
+def unfactor(xs: Factors) -> int:
+    return math.prod(p**count for p, count in xs.items())
 
 
-def solve2(monkeys: List[Monkey]) -> int:
-    return go(monkeys=monkeys, hard=True, rounds=10_000)
+assrt({59: 1, 3: 1}, factor, 177)
+assrt(177, unfactor, factor(177))
+assrt(2769725, unfactor, factor(2769725))
 
 
-# assrt(27019168, go, TEST_MONKEYS, True, 1000)
+class PrimeMonkey:
+    def __init__(
+        self,
+        items: List[int],
+        op: Op,
+        divisor: int,
+        next_true: int,
+        next_false: int,
+    ):
+        self._items = deque([factor(i) for i in items])
+        self._op = op
+        self._divisor = divisor
+        self._next_true = next_true
+        self._next_false = next_false
+
+    def has_items(self) -> bool:
+        return len(self._items) > 0
+
+    @property
+    def item_count(self) -> int:
+        return len(self._items)
+
+    def add_item(self, item: Factors):
+        self._items.appendleft(item)
+
+    def inspect(self) -> Tuple[Factors, int]:
+        factors = self._items.pop()
+        if isinstance(self._op, MulOp):
+            factors[self._op._value] = factors.get(self._op._value, 0) + 1
+        elif isinstance(self._op, SqOp):
+            factors = {p: count * 2 for p, count in factors.items()}
+        else:
+            assert isinstance(self._op, AddOp)
+            factors = factor(unfactor(factors) + self._op._value)
+
+        return (
+            factors,
+            self._next_true if factors.get(self._divisor, 0) > 0 else self._next_false,
+        )
+
 
 PRIME_INPUT_MONKEYS = [
-    Monkey(
+    PrimeMonkey(
         items=[72, 64, 51, 57, 93, 97, 68],
         op=MulOp(19),
         divisor=17,
         next_true=4,
         next_false=7,
     ),
-    Monkey(items=[62], op=MulOp(11), divisor=3, next_true=3, next_false=2),
-    Monkey(
+    PrimeMonkey(items=[62], op=MulOp(11), divisor=3, next_true=3, next_false=2),
+    PrimeMonkey(
         items=[57, 94, 69, 79, 72],
         op=AddOp(6),
         divisor=19,
         next_true=0,
         next_false=4,
     ),
-    Monkey(
+    PrimeMonkey(
         items=[80, 64, 92, 93, 64, 56],
         op=AddOp(5),
         divisor=7,
         next_true=2,
         next_false=0,
     ),
-    Monkey(
+    PrimeMonkey(
         items=[70, 88, 95, 99, 78, 72, 65, 94],
         op=AddOp(7),
         divisor=2,
         next_true=7,
         next_false=5,
     ),
-    Monkey(items=[57, 95, 81, 61], op=SqOp(), divisor=5, next_true=1, next_false=6),
-    Monkey(items=[79, 99], op=AddOp(2), divisor=11, next_true=3, next_false=1),
-    Monkey(items=[68, 98, 62], op=AddOp(3), divisor=13, next_true=5, next_false=6),
+    PrimeMonkey(
+        items=[57, 95, 81, 61], op=SqOp(), divisor=5, next_true=1, next_false=6
+    ),
+    PrimeMonkey(items=[79, 99], op=AddOp(2), divisor=11, next_true=3, next_false=1),
+    PrimeMonkey(items=[68, 98, 62], op=AddOp(3), divisor=13, next_true=5, next_false=6),
 ]
+
+TEST_PRIME_MONKEYS = [
+    PrimeMonkey(items=[79, 98], op=MulOp(19), divisor=23, next_true=2, next_false=3),
+    PrimeMonkey(
+        items=[54, 65, 75, 74],
+        op=AddOp(6),
+        divisor=19,
+        next_true=2,
+        next_false=0,
+    ),
+    PrimeMonkey(items=[79, 60, 97], op=SqOp(), divisor=13, next_true=1, next_false=3),
+    PrimeMonkey(items=[74], op=AddOp(3), divisor=17, next_true=0, next_false=1),
+]
+
+assrt((factor(98 * 19), 3), deepcopy(TEST_PRIME_MONKEYS[0]).inspect)
+assrt((factor(74 + 6), 0), deepcopy(TEST_PRIME_MONKEYS[1]).inspect)
+assrt((factor(97 * 97), 3), deepcopy(TEST_PRIME_MONKEYS[2]).inspect)
+assrt(
+    (factor(14 + 3), 0),
+    PrimeMonkey(items=[14], op=AddOp(3), divisor=17, next_true=0, next_false=1).inspect,
+)
+
+
+def solve2(monkeys: List[PrimeMonkey], rounds=10_000) -> int:
+    monkeys = deepcopy(monkeys)
+    counts = [0] * len(monkeys)
+    for _ in tqdm(range(rounds)):
+        for i, monkey in enumerate(monkeys):
+            while monkey.has_items():
+                counts[i] += 1
+                item, idx = monkey.inspect()
+                monkeys[idx].add_item(item)
+
+    x, y = list(sorted(counts, reverse=True))[:2]
+    return x * y
+
+
+assrt(6 * 4, solve2, TEST_PRIME_MONKEYS, 1)
+assrt(103 * 99, solve2, TEST_PRIME_MONKEYS, 20)
+# assrt(5204 * 5192, solve2, TEST_PRIME_MONKEYS, 1000)
 
 
 def main():
     with open("in.txt") as infile:
         print(solve1(INPUT_MONKEYS))
-        print(solve2(INPUT_MONKEYS))
+        # print(solve2(PRIME_INPUT_MONKEYS))
 
 
 if __name__ == "__main__":
