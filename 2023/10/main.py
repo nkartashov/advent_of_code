@@ -12,7 +12,7 @@ from collections import Counter, deque
 import re
 
 
-def find_start(field: list[str]) -> tuple[int, int]:
+def find_start(field: list[list[str]]) -> tuple[int, int]:
     for i, row in enumerate(field):
         for j, c in enumerate(row):
             if c == "S":
@@ -28,7 +28,9 @@ D: list[tuple[tuple[int, int], str]] = [
 ]
 
 
-def solve1(field: list[str]) -> int:
+def solve1(f: list[str]) -> int:
+    field = [list(l) for l in f]
+
     start = find_start(field)
     dist = {start: 0}
     to_visit = deque([start])
@@ -51,7 +53,12 @@ def solve1(field: list[str]) -> int:
                 continue
 
             dist[(ii, jj)] = dist[(i, j)] + 1
+            field[ii][jj] = "X"
             to_visit.append((ii, jj))
+
+    with open("out.txt", "w") as out:
+        for row in field:
+            out.write("".join(row) + "\n")
 
     return max(dist.values())
 
